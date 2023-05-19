@@ -1,0 +1,89 @@
+- name: Ansible playbook to install docker and kubectl
+  hosts: all
+  become: yes
+  tasks:
+  - name: Update and upgrade packages
+    apt:
+      update_cache: yes
+      upgrade: yes
+  - name: Add Docker GPG apt Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker Repository
+    apt_repository:
+      repo: deb https://download.docker.com/linux/ubuntu focal stable
+      state: present
+
+  - name: Update apt and install docker-ce
+    apt:
+      name: docker-ce
+      state: latest
+      update_cache: true
+
+  - name: Enable Docker service
+    systemd:
+       name: docker
+       enabled: yes
+
+  - name: Restart Docker service
+    systemd:
+       name: docker
+       state: restarted
+
+  - name: Add kubernetes apt-key
+    apt_key:
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+
+  - name: Add Kubernetes repository
+    apt_repository:
+        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+
+  - name: Update and upgrade packages
+    apt:
+      update_cache: yes
+      upgrade: yes
+
+  - name: Install kubectl
+    apt:
+      name: kubectl
+      state: present
+
+  - name: Create directory for kind binary
+    file:
+      path: /usr/local/bin
+      state: directory
+
+  - name: Download kind binary
+    get_url:
+       url: https://kind.sigs.k8s.io/dl/v0.18.0/kind-linux-amd64
+       dest: /usr/local/bin/kind
+       mode: "u+x"
+       
+  - name: Copy file from control node to manage node
+    copy:
+      src: /home/ubuntu/kuber-ansible/kind-config.yml
+      dest: /home/ubuntu
+
+  - name: add ubuntu to docker group
+    user:
+      name: ubuntu
+      groups: docker
+      append: yes
+  - name: Copy file from control node to manage node
+    copy:
+      src: /home/ubuntu/kuber-ansible/kind-config.yml
+      dest: /home/ubuntu
+
+  - name: Execute kind command to create cluster
+    shell: kind create cluster --config /home/ubuntu/kind-config.yml --kubeconfig /home/ubuntu/.kube/config
+
+  - name: Update kubeconfig permisssion
+    file:
+      path: /home/ubuntu/.kube/config
+      owner: ubuntu
+      group: ubuntu
+      mode: '0644'
+
